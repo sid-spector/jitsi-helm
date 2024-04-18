@@ -21,7 +21,7 @@ spec:
       {{- end }}
       protocol: UDP
       name: rtp-udp
-      {{- if and .Values.jvb.TCPHealthCheckEnabled eq "True" }}
+      {{ if .Values.jvb.TCPHealthCheckEnabled }}
     - port: {{ default 8080 .Values.jvb.TCPHealthCheckPort }}
       protocol: TCP
       name: TCPhc
