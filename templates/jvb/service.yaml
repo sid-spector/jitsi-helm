@@ -24,7 +24,7 @@ spec:
       {{ if .Values.jvb.TCPHealthCheckEnabled }}
     - port: {{ default 8080 .Values.jvb.TCPHealthCheckPort }}
       protocol: TCP
-      name: TCPhc
+      name: tcp-hc
       targetPort: {{ default 8080 .Values.jvb.TCPHealthCheckTargetPort }}
       {{- end }}
   {{- with .Values.jvb.service.externalIPs }}
