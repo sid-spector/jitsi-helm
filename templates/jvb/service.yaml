@@ -21,11 +21,11 @@ spec:
       {{- end }}
       protocol: UDP
       name: rtp-udp
-      {{- if and .Values.jvb.HTTPHealthCheck eq "True" }}
-    - port: {{ default 10001 .Values.jvb.HTTPHealthCheckPort }}
+      {{- if and .Values.jvb.TCPHealthCheckEnabled eq "True" }}
+    - port: {{ default 8080 .Values.jvb.TCPHealthCheckPort }}
       protocol: TCP
       name: TCPhc
-      targetPort: {{ default 8080 .Values.jvb.HTTPHealthCheckTargetPort }}
+      targetPort: {{ default 8080 .Values.jvb.TCPHealthCheckTargetPort }}
       {{- end }}
   {{- with .Values.jvb.service.externalIPs }}
   externalIPs:
