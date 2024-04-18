@@ -21,6 +21,12 @@ spec:
       {{- end }}
       protocol: UDP
       name: rtp-udp
+      {{- if and .Values.jvb.HTTPHealthCheck eq "True" }}
+    - port: {{ default 10001 .Values.jvb.HTTPHealthCheckPort }}
+      protocol: TCP
+      name: TCPhc
+      targetPort: {{ default 10001 .Values.jvb.HTTPHealthCheckTargetPort }}
+      {{- end }}
   {{- with .Values.jvb.service.externalIPs }}
   externalIPs:
   {{ toYaml . | indent 2 | trim }}
