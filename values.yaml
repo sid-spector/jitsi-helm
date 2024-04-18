@@ -218,6 +218,11 @@ jvb:
   useHostNetwork: false
   ## UDP transport port:
   UDPPort: 10000
+  ## TCPHealthCheck use tcp healthcheck (DO loadbalancer allows only TCP healthchecks)
+  TCPHealthCheck: false
+  ## Configure TCP healthcheck ports
+  TCPHealthCheckPort: 8080
+  TCPHealthCheckTargetPort: 8080
   ## Use a pre-defined external port for NodePort or LoadBalancer service,
   #  if needed. Will allocate a random port from allowed range if unset.
   #  (Default NodePort range for K8s is 30000-32767)
