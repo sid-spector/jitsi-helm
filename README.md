@@ -1,6 +1,11 @@
 # Helm Chart for Jitsi Meet
 
-[jitsi-meet](https://jitsi.org/jitsi-meet/) Secure, Simple and Scalable Video Conferences that you use as a standalone app or embed in your web application.
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/jitsi-meet)](https://artifacthub.io/packages/search?repo=jitsi-meet) ![GitHub Release](https://img.shields.io/github/v/release/jitsi-contrib/jitsi-helm?logo=helm&logoColor=white&label=Latest%20release)
+ ![GitHub Release Date](https://img.shields.io/github/release-date/jitsi-contrib/jitsi-helm?display_date=published_at&logo=git&logoColor=white&label=Released%20at)
+
+
+[jitsi-meet](https://jitsi.org/jitsi-meet/) Secure, Simple and Scalable Video
+Conferences that you use as a standalone app or embed in your web application.
 
 ## TL;DR;
 
@@ -11,14 +16,17 @@ helm install myjitsi jitsi/jitsi-meet
 
 ## Introduction
 
-This chart bootstraps a jitsi-meet deployment, like the official [one](https://meet.jit.si).
+This chart bootstraps a jitsi-meet deployment, like the official
+[one](https://meet.jit.si).
 
-## Different topology
+## Exposing your Jitsi Meet installation
 
-To be able to do video conferencing with other people, the jvb component should be reachable by all participants (eg: a public IP).
-Thus the default behaviour of advertised the internal IP of jvb, is not really suitable in many cases.
-Kubernetes offers multiple possibilities to work around the problem. Not all options are available depending on the Kubernetes cluster setup.
-The chart tries to make all options available without enforcing one.
+To be able to do video conferencing with other people, the JVB component should
+be reachable by all participants (e.g. on a public IP). Thus the default
+behaviour of advertised the internal IP of JVB, is not really suitable in many
+cases. Kubernetes offers multiple possibilities to work around the problem. Not
+all options are available depending on the Kubernetes cluster setup. The chart
+tries to make all options available without enforcing one.
 
 ### Option 1: service of type `LoadBalancer`
 
@@ -39,7 +47,9 @@ jvb:
     # - 30.10.10.2
 ```
 
-In this case you're not allowed to change the `jvb.replicaCount` to more than `1`, UDP packets will be routed to random `jvb`, which would not allow for a working video setup.
+In this case you're not allowed to change the `jvb.replicaCount` to more than
+`1`, UDP packets will be routed to random `jvb`, which would not allow for a
+working video setup.
 
 ### Option 2: NodePort and node with Public IP or external loadbalancer
 
@@ -74,7 +84,19 @@ jvb:
 ```
 
 In this case you can have more the one `jvb` but you're putting you cluster at
-risk by having it directly exposed on the Internet.
+risk by having the nodes IPs and JVB ports directly exposed on the Internet.
+
+#### Option 3.1: hostPort and auto-detected Node IP
+
+```yaml
+jvb:
+  useHostPort: true
+  useNodeIP: true
+```
+
+This is similar to option 3, but every JVB pod will auto-detect it's own
+external IP address based on the node it's running on. This option might be
+better suited for installations that use OCTO.
 
 ### Option 4: hostNetwork
 
@@ -89,7 +111,8 @@ cases.
 
 ### Option 4: Use ingress TCP/UDP forward capabilities
 
-In case of an ingress capable of doing tcp/udp forwarding (like nginx-ingress), it can be setup to forward the video streams.
+In case of an ingress capable of doing tcp/udp forwarding (like nginx-ingress),
+it can be setup to forward the video streams.
 
 ```yaml
 # Don't forget to configure the ingress properly (separate configuration)
@@ -145,20 +168,70 @@ jibri:
     ## Set to true to enable "/dev/shm" mount.
     ## May be required by built-in Chromium.
     enabled: true
-
-
-## Required to allow Jibri to connect to Jitsi Meet service:
-prosody:
-  extraEnvFrom:
-    <...>
-  ## Uncomment this if you want to use jibri:
-  - secretRef:
-      name: '{{ include "prosody.fullname" . }}-jibri'
 ```
 
 The above example will allow your Jitsi users to make local recordings, as well
 as live streams of their meetings.
 
+
+## Scaling your installation
+
+At the moment you can freely scale Jitsi Web and Jibri pods, as they're
+stateless and require zero special configuration to work in multi-instance
+setup:
+
+```yaml
+web:
+  replicaCount: 3
+
+jibri:
+  replicaCount: 3
+```
+
+Also, this chart supports JVB scaling based on OCTO Relay feature, which allows
+different users to connect to different bridges and still see and hear each
+other. This feature requires some additional configuration. Here's an example
+based on the Option 3.1 mentioned above:
+
+```yaml
+jvb:
+  ## Set JVB instance count:
+  replicaCount: 3
+  ## Expose JVB interface port to the outside world
+  #  only on nodes that actually have it:
+  useHostPort: true
+  ## Make every JVB pod announce its Node's external
+  #  IP address and nothing more:
+  useNodeIP: true
+
+
+octo:
+  ## Enable OCTO support for both JVB and Jicofo:
+  enabled: true
+```
+
+Please note that the JVB scaling feature is currently under-tested and thus
+considered *experimental*. Also note that this chart doesn't allow to scale JVB
+into multiple zones/regions yet: all JVB pods will be part of the single OCTO
+region named `all`.
+
+## Adding custom Prosody plugins
+
+In case you want to extend your Jitsi Meet installation with additional Prosody
+features, you can add custom plugins using additional ConfigMap mounts like
+this:
+
+```yaml
+prosody:
+  extraVolumes:
+    - name: prosody-modules
+      configMap:
+        name: prosody-modules
+  extraVolumeMounts:
+    - name: prosody-modules
+      subPath: mod_measure_client_presence.lua
+      mountPath: /prosody-plugins-custom/mod_measure_client_presence.lua
+```
 
 ## Configuration
 
@@ -185,7 +258,7 @@ Parameter | Description | Default
 `jibri.shm.size` | Jibri shared memory size | `256Mi`
 `jibri.replicaCount` | Number of replica of the jibri pods | `1`
 `jibri.image.repository` | Name of the image to use for the jibri pods | `jitsi/jibri`
-`jibri.extraEnvs` | Map containing additional environment variables for jibri | '{}'
+`jibri.extraEnvs` | Map containing additional environment variables for jibri | `{}`
 `jibri.livenessProbe` | Map that holds the liveness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A livenessProbe map
 `jibri.readinessProbe` | Map that holds the readiness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A readinessProbe map
 `jibri.breweryMuc` | Name of the XMPP MUC used by jibri | `jibribrewery`
@@ -203,22 +276,26 @@ Parameter | Description | Default
 `jigasi.xmpp.password` | Password used by Jigasi to authenticate on the XMPP service | 10 random chars
 `jigasi.livenessProbe` | Map that holds the liveness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A livenessProbe map
 `jigasi.readinessProbe` | Map that holds the readiness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A readinessProbe map
-`jigasi.extraEnvs` | Map containing additional environment variables for Jigasi | '{}'
+`jigasi.extraEnvs` | Map containing additional environment variables for Jigasi | `{}`
 `jicofo.replicaCount` | Number of replica of the jicofo pods | `1`
 `jicofo.image.repository` | Name of the image to use for the jicofo pods | `jitsi/jicofo`
-`jicofo.extraEnvs` | Map containing additional environment variables for jicofo | '{}'
+`jicofo.extraEnvs` | Map containing additional environment variables for jicofo | `{}`
 `jicofo.livenessProbe` | Map that holds the liveness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A livenessProbe map
 `jicofo.readinessProbe` | Map that holds the readiness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A readinessProbe map
 `jicofo.xmpp.password` | Password used by jicofo to authenticate on the XMPP service | 10 random chars
 `jicofo.xmpp.componentSecret` | Values of the secret used by jicofo for the xmpp-component | 10 random chars
 `jvb.publicIPs` | List of IP addresses for JVB to announce to clients | `(unset)`
+`jvb.useNodeIP` | Auto-detect external IP address based on the Node IP | `false`
+`jvb.stunServers` | List of STUN/TURN servers to announce to the users | `meet-jit-si-turnrelay.jitsi.net:443`
 `jvb.service.enabled` | Boolean to enable os disable the jvb service creation | `false` if `jvb.useHostPort` is `true` otherwise `true`
 `jvb.service.type` | Type of the jvb service | `ClusterIP`
+`jvb.service.annotations` | Additional annotations for JVB service (might be useful for managed k8s) | `{}`
+`jvb.service.extraPorts` | Additional ports to expose from your JVB pod(s) | `[]`
 `jvb.UDPPort` | UDP port used by jvb, also affects port of service, and hostPort | `10000`
 `jvb.nodePort` | UDP port used by NodePort service | `(unset)`
 `jvb.useHostPort` | Enable HostPort feature (may not work on some CNI plugins) | `false`
 `jvb.useHostNetwork` | Connect JVB pod to host network namespace | `false`
-`jvb.extraEnvs` | Map containing additional environment variables to jvb | '{}'
+`jvb.extraEnvs` | Map containing additional environment variables to jvb | `{}`
 `jvb.xmpp.user` | Name of the XMPP user used by jvb to authenticate | `jvb`
 `jvb.xmpp.password` | Password used by jvb to authenticate on the XMPP service | 10 random chars
 `jvb.livenessProbe` | Map that holds the liveness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A livenessProbe map
@@ -237,7 +314,7 @@ Parameter | Description | Default
 `web.httpsEnabled` | Boolean that enabled tls-termination on the web pods. Useful if you expose the UI via a `Loadbalancer` IP instead of an ingress | `false`
 `web.httpRedirect` | Boolean that enabled http-to-https redirection. Useful for ingress that don't support this feature (ex: GKE ingress) | `false`
 `web.resolverIP` | Override nameserver IP for Web container | (*unset*, use auto-detected nameserver IP)
-`web.extraEnvs` | Map containing additional environment variable to web pods | '{}'
+`web.extraEnvs` | Map containing additional environment variable to web pods | `{}`
 `web.livenessProbe` | Map that holds the liveness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A livenessProbe map
 `web.readinessProbe` | Map that holds the readiness probe, you can add parameters such as timeout or retries following the Kubernetes spec | A readinessProbe map
 `tz` | System Time Zone | `Europe/Amsterdam`

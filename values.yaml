@@ -70,6 +70,7 @@ web:
       _ssl_conf: ""
       _system_config_js: ""
     configs:
+      _custom_interface_config_js: ""
       _custom_config_js: ""
 
   extraEnvs: {}
@@ -207,6 +208,11 @@ jvb:
   # publicIPs:
   #   - 1.2.3.4
   #   - 5.6.7.8
+  ## Alternative option: auto-detect Node's external IP address.
+  #  Recommended for OCTO setups (with either NodePort service
+  #  or hostPort enabled) where every JVB pod should announce it's
+  #  own IP address only.
+  useNodeIP: false
   ## Use a STUN server to help some users punch through some
   #  especially nasty NAT setups. Usually makes sense for P2P calls.
   stunServers: 'meet-jit-si-turnrelay.jitsi.net:443'
@@ -233,8 +239,18 @@ jvb:
     externalTrafficPolicy: Cluster
     externalIPs: []
     ## Annotations to be added to the service (if LoadBalancer is used)
-    ##
+    #  An example below is needed for DigitalOcean managed k8s setups
+    #  with a LoadBalancer service, so that DO's external LB can perform
+    #  health checks on JVB.
     annotations: {}
+      # service.beta.kubernetes.io/do-loadbalancer-healthcheck-port: "8080"
+      # service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol: "tcp"
+    ## Add extra ports to the service.
+    #  An example below is needed for DigitalOcean managed k8s setups.
+    extraPorts: []
+      # - name: http-healthcheck
+      #   port: 8080
+      #   protocol: TCP
 
   breweryMuc: jvbbrewery
 
@@ -489,6 +505,8 @@ prosody:
       name: '{{ include "prosody.fullname" . }}-common'
   image:
     repository: jitsi/prosody
+    tag: stable-9457-2
+
   # service:
   #   ports:
   # If Prosody c2s in needed on private net outside the cluster
@@ -503,4 +521,13 @@ prosody:
       _prosody_cfg_lua: ""
       _saslauthd_conf: ""
       _jitsi_meet_cfg_lua: ""
-    tag: stable-9364
+
+  extraVolumes: []
+    # - name: prosody-modules
+    #   configMap:
+    #     name: prosody-modules
+
+  extraVolumeMounts: []
+    # - name: prosody-modules
+    #   subPath: mod_measure_client_presence.lua
+    #   mountPath: /prosody-plugins-custom/mod_measure_client_presence.lua
